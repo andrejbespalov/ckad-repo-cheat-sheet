@@ -1,0 +1,401 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CKAD Ultimate Cheat Sheet FINAL</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #fff;
+            color: #222;
+        }
+        code {
+            background-color: #eee;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 4px;
+        }
+        h1, h2 {
+            color: #0a5;
+        }
+        a {
+            color: #06c;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+<h1><strong>CKAD Ultimate Cheat Sheet – FINAL VERSION</strong></h1>
+
+<hr />
+
+<h2>Inhaltsverzeichnis</h2>
+
+<ol>
+<li><a href="#kubectl-basics">kubectl Basics</a></li>
+<li><a href="#deployment-yaml">Deployment YAML</a></li>
+<li><a href="#probes">Probes (Liveness &amp; Readiness)</a></li>
+<li><a href="#volumes">Volumes &amp; Persistent Storage</a></li>
+<li><a href="#configmaps-secrets">ConfigMaps &amp; Secrets</a></li>
+<li><a href="#jobs-cronjobs">Jobs &amp; CronJobs</a></li>
+<li><a href="#init-multicontainer">Init Containers &amp; Multi-Container Pods</a></li>
+<li><a href="#namespaces">Namespaces &amp; Context Switching</a></li>
+<li><a href="#kubectl-tricks">kubectl Tipps &amp; Tricks</a></li>
+<li><a href="#shell-befehle">Shell-Kommandos im Pod</a></li>
+<li><a href="#debugging">Debugging &amp; Logs</a></li>
+<li><a href="#zeit-tipps">Zeitspar-Tipps</a></li>
+<li><a href="#weitere-kubectl">Weitere kubectl Befehle mit Erklärungen</a></li>
+<li><a href="#mehr-shell">Weitere nützliche Shell-Kommandos</a></li>
+<li><a href="#kontext-alias">Kontextwechsel &amp; Alias Tipps</a></li>
+</ol>
+
+<hr />
+
+<h2>kubectl Basics</h2>
+
+<p><code>bash
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml &gt; nginx.yaml<br>
+kubectl apply -f file.yaml<br>
+kubectl get all<br>
+kubectl describe pod mypod<br>
+kubectl logs mypod<br>
+kubectl exec -it mypod -- sh<br>
+kubectl port-forward pod/mypod 8080:80<br>
+kubectl cp ./file.txt mypod:/tmp/file.txt
+</code></p>
+
+<hr />
+
+<h2>Deployment YAML</h2>
+
+<p><code>yaml<br>
+apiVersion: apps/v1<br>
+kind: Deployment<br>
+metadata:<br>
+  name: myapp<br>
+spec:<br>
+  replicas: 2<br>
+  selector:<br>
+    matchLabels:<br>
+      app: myapp<br>
+  template:<br>
+    metadata:<br>
+      labels:<br>
+        app: myapp<br>
+    spec:<br>
+      containers:<br>
+      - name: myapp<br>
+        image: nginx<br>
+        ports:<br>
+        - containerPort: 80
+</code></p>
+
+<hr />
+
+<h2>Probes</h2>
+
+<p><code>
+livenessProbe:<br>
+  httpGet:<br>
+    path: /healthz<br>
+    port: 8080<br>
+  initialDelaySeconds: 5<br>
+  periodSeconds: 10<br></code>
+<br>
+<code>readinessProbe:<br>
+  tcpSocket:<br>
+    port: 8080<br>
+  initialDelaySeconds: 5<br>
+  periodSeconds: 10
+</code></p>
+
+<hr />
+
+<h2>Volumes</h2>
+
+<p><code>
+volumes:<br>
+- name: data<br>
+  emptyDir: {}<br></code>
+
+<code>volumeMounts:<br>
+- mountPath: /data<br>
+  name: data
+</code></p>
+
+<h2>Persistent Volume Claim</h2>
+
+<p><code>
+apiVersion: v1<br>
+kind: PersistentVolumeClaim<br>
+metadata:<br>
+  name: mypvc<br>
+spec:<br>
+  accessModes:<br>
+    - ReadWriteOnce<br>
+  resources:<br>
+    requests:<br>
+      storage: 1Gi
+</code></p>
+
+<hr />
+
+<h2>ConfigMaps &amp; Secrets</h2>
+
+<h3>ConfigMap</h3>
+
+<p><code>
+kubectl create configmap myconfig --from-literal=key=value --dry-run=client -o yaml
+</code></p>
+
+<p><code>
+envFrom:<br>
+- configMapRef:<br>
+    name: myconfig
+</code></p>
+
+<h3>Secret</h3>
+
+<p><code>
+kubectl create secret generic mysecret --from-literal=password=1234 --dry-run=client -o yaml
+</code></p>
+
+<p><code>
+env:<br>
+- name: PASSWORD<br>
+  valueFrom:<br>
+    secretKeyRef:<br>
+      name: mysecret<br>
+      key: password
+</code></p>
+
+<hr />
+
+<h2>Jobs &amp; CronJobs</h2>
+
+<h3>Job</h3>
+
+<p><code>
+apiVersion: batch/v1<br>
+kind: Job<br>
+metadata:<br>
+  name: pi<br>
+spec:<br>
+  template:<br>
+    spec:<br>
+      containers:<br>
+      - name: pi<br>
+        image: perl<br>
+        command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(2000)"]<br>
+      restartPolicy: Never
+</code></p>
+
+<h3>CronJob</h3>
+
+<p><code>
+apiVersion: batch/v1<br>
+kind: CronJob<br>
+metadata:<br>
+  name: hello<br>
+spec:<br>
+  schedule: "*/1 * * * *"<br>
+  jobTemplate:<br>
+    spec:<br>
+      template:<br>
+        spec:<br>
+          containers:<br>
+          - name: hello<br>
+            image: busybox<br>
+            args:<br>
+            - /bin/sh<br>
+            - -c<br>
+            - date; echo Hello from the Kubernetes cluster<br>
+          restartPolicy: OnFailure
+</code></p>
+
+<hr />
+
+<h2>Init &amp; Multi-Container Pods</h2>
+
+<h3>Init Container</h3>
+
+<p><code>
+initContainers:<br>
+- name: init-myservice<br>
+  image: busybox<br>
+  command: ['sh', '-c', 'echo initializing...; sleep 5']
+</code></p>
+
+<h3>Multi-Container</h3>
+
+<p><code>
+containers:<br>
+- name: app<br>
+  image: nginx<br>
+- name: sidecar<br>
+  image: busybox<br>
+  command: ["sh", "-c", "while true; do echo sidecar; sleep 10; done"]
+</code></p>
+
+<hr />
+
+<h2>Namespaces</h2>
+
+<p><code>
+kubectl get pods -n myns<br>
+kubectl config set-context --current --namespace=myns
+</code></p>
+
+<hr />
+
+<h2>kubectl Tipps &amp; Tricks</h2>
+
+<p><code>
+kubectl explain pod.spec.containers<br>
+kubectl get po -o wide<br>
+kubectl get po -o custom-columns=NAME:.metadata.name,STATUS:.status.phase<br>
+kubectl top pod
+</code></p>
+
+<hr />
+
+<h2>Shell-Befehle (im Container)</h2>
+
+<p><code>
+ls -l /app<br>
+cat /etc/config/settings.yaml<br>
+env<br>
+curl localhost:8080
+</code></p>
+
+<hr />
+
+<h2>Debugging</h2>
+
+<p><code>
+kubectl logs mypod<br>
+kubectl describe pod mypod<br>
+kubectl get events --sort-by=.metadata.creationTimestamp<br>
+kubectl run -it debug --image=busybox --restart=Never -- sh
+</code></p>
+
+<hr />
+
+<h2>Zeitspar-Tipps</h2>
+
+<ul>
+<li>Nutze <code>--dry-run=client -o yaml &gt; file.yaml</code> für schnelles YAML</li>
+<li>Verwende <code>kubectl explain</code> bei Unsicherheiten</li>
+<li>Mache komplexe Aufgaben zuletzt</li>
+<li>Starte mit den Aufgaben mit hohem Punktwert</li>
+</ul>
+
+<hr />
+
+<h2>Weitere kubectl Befehle mit Erklärungen</h2>
+
+<table border="1" cellpadding="8" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Befehl</th>
+      <th>Beschreibung</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>kubectl get svc</code></td><td>Liste aller Services</td></tr>
+    <tr><td><code>kubectl get deployment</code></td><td>Liste aller Deployments</td></tr>
+    <tr><td><code>kubectl get pod -o yaml &gt; pod.yaml</code></td><td>YAML-Definition eines Pods exportieren</td></tr>
+    <tr><td><code>kubectl replace -f pod.yaml</code></td><td>Ressource ersetzen (nach Änderung)</td></tr>
+    <tr><td><code>kubectl delete -f file.yaml</code></td><td>Ressource aus YAML löschen</td></tr>
+    <tr><td><code>kubectl scale deployment mydeploy --replicas=3</code></td><td>Deployment skalieren</td></tr>
+    <tr><td><code>kubectl rollout status deployment/mydeploy</code></td><td>Status eines Rollouts anzeigen</td></tr>
+    <tr><td><code>kubectl rollout undo deployment/mydeploy</code></td><td>Rollout rückgängig machen</td></tr>
+    <tr><td><code>kubectl label pod mypod tier=frontend</code></td><td>Label zu einem Pod hinzufügen</td></tr>
+    <tr><td><code>kubectl annotate pod mypod description='test'</code></td><td>Annotation hinzufügen</td></tr>
+    <tr><td><code>kubectl set image deployment/mydeploy nginx=nginx:1.19</code></td><td>Image eines Deployments ändern</td></tr>
+    <tr><td><code>kubectl patch pod mypod -p '{"spec":{"activeDeadlineSeconds": 100}}'</code></td><td>Pod patchen</td></tr>
+    <tr><td><code>kubectl config view</code></td><td>Kubeconfig anzeigen</td></tr>
+    <tr><td><code>kubectl api-resources</code></td><td>Verfügbare Ressourcen auflisten</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2>Weitere nützliche Shell-Kommandos</h2>
+
+<table border="1" cellpadding="8" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Befehl</th>
+      <th>Beschreibung</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>whoami</code></td><td>Benutzername</td></tr>
+    <tr><td><code>id</code></td><td>Benutzer-ID und Gruppen</td></tr>
+    <tr><td><code>df -h</code></td><td>Freier Speicherplatz</td></tr>
+    <tr><td><code>du -sh /path</code></td><td>Verzeichnisgröße</td></tr>
+    <tr><td><code>top</code></td><td>Prozesse live anzeigen</td></tr>
+    <tr><td><code>uptime</code></td><td>Systemlaufzeit</td></tr>
+    <tr><td><code>hostname</code></td><td>Hostname</td></tr>
+    <tr><td><code>echo $HOSTNAME</code></td><td>Hostname ausgeben</td></tr>
+    <tr><td><code>export VAR=value</code></td><td>Umgebungsvariable setzen</td></tr>
+    <tr><td><code>kill -9 PID</code></td><td>Prozess beenden</td></tr>
+    <tr><td><code>xargs</code></td><td>In Pipes</td></tr>
+    <tr><td><code>grep -i "text" file.txt</code></td><td>Textsuche</td></tr>
+    <tr><td><code>find / -name "*.conf"</code></td><td>Dateien suchen</td></tr>
+    <tr><td><code>tar -czf archive.tar.gz /data</code></td><td>Packen</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2>Kontext &amp; Alias Tipps</h2>
+
+<h3>Kontext wechseln:</h3>
+
+<p><code>
+kubectl config use-context CONTEXTNAME
+</code></p>
+
+<h3>Namespace dauerhaft setzen:</h3>
+
+<p><code>
+kubectl config set-context --current --namespace=mynamespace
+</code></p>
+
+<h3>Temporär Namespace mitgeben:</h3>
+
+<p><code>
+kubectl get pods -n mynamespace
+</code></p>
+
+<hr />
+
+<h2>Alias für kubectl (Zeit sparen!)</h2>
+
+<p><code>bash
+alias k='kubectl'
+</code></p>
+
+<h3>Beispiele:</h3>
+
+<p><code>
+k get po<br>
+k describe svc myservice<br>
+k apply -f myfile.yaml
+</code></p>
+
+<blockquote>
+  <p>Tipp: Den Alias kannst du direkt im Terminal setzen, er spart dir <strong>viel Tippzeit</strong>.</p>
+</blockquote>
+
+</body>
+</html>
